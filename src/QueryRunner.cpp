@@ -3,24 +3,34 @@
 #include "BitFunnel/Chunks/DocumentFilters.h"
 #include "BitFunnel/Chunks/Factories.h"
 #include "BitFunnel/Chunks/IChunkManifestIngestor.h"
+#include "BitFunnel/Configuration/Factories.h"
 #include "BitFunnel/Data/Sonnets.h"
 #include "BitFunnel/Index/Factories.h"
 #include "BitFunnel/Index/IIngestor.h"
 #include "BitFunnel/Index/IngestChunks.h"
+#include "BitFunnel/Plan/Factories.h"
 #include "BitFunnel/Plan/QueryInstrumentation.h"
+#include "BitFunnel/Plan/QueryParser.h"
 #include "BitFunnel/Plan/QueryRunner.h"
+#include "BitFunnel/Utilities/Factories.h"
 #include "BitFunnel/Utilities/ReadLines.h"
 #include "BitFunnel/Utilities/Stopwatch.h"
 #include "CsvTsv/Csv.h"
+
+#include "StreamConfiguration.h"
+#include "DiagnosticStream.h"
+
 #include "QueryRunner.h"
 
+static const size_t c_allocatorSize = 1ull << 17; 
+
 QueryRunner::QueryRunner(BitFunnel::IFileSystem& fileSystem,
-	                     std::istream& input,
-	                     std::ostream& output,
-	                     const char *configFolder,
-	                     const char *manifest,
-	                     size_t threadCount,
-	                     size_t memory) :
+	std::istream& input,
+	std::ostream& output,
+	const char *configFolder,
+	const char *manifest,
+	size_t threadCount,
+	size_t memory) :
 	m_fileSystem(fileSystem),
 	m_input(input),
 	m_output(output),
@@ -32,7 +42,10 @@ QueryRunner::QueryRunner(BitFunnel::IFileSystem& fileSystem,
 	m_index(BitFunnel::Factories::CreateSimpleIndex(fileSystem)),
 	m_cacheLineCountMode(false),
 	m_compilerMode(true),
-	m_failOnException(false)
+	m_failOnException(false),
+	m_resources(c_allocatorSize, c_allocatorSize),
+	m_resultsBuffer(1000),
+	m_queriesProcessed(0)
 {
 	BitFunnel::Stopwatch stopwatch;
 
@@ -72,6 +85,13 @@ QueryRunner::QueryRunner(BitFunnel::IFileSystem& fileSystem,
 		BitFunnel::IngestChunks(*manifest, threadCount);
 	}
 
+	m_resultsBuffer = BitFunnel::ResultsBuffer(m_index->GetIngestor().GetDocumentCount());
+
+	if (m_cacheLineCountMode)
+	{
+		m_resources.EnableCacheLineCounting(*m_index);
+	}
+
 	// Indicate we are ready
 	double t = stopwatch.ElapsedTime();
 	ingestor.PrintStatistics(m_output, t);
@@ -83,8 +103,10 @@ QueryRunner::~QueryRunner()
 
 void QueryRunner::RunQuery(std::string query)
 {
+	++m_queriesProcessed;
+
 	// Run the query
-	auto instrumentation =
+	auto instrumentationdata =
 		BitFunnel::QueryRunner::Run(query.c_str(),
 			*m_index,
 			m_compilerMode,
@@ -94,5 +116,52 @@ void QueryRunner::RunQuery(std::string query)
 	m_output << "Results for: " << query << std::endl;
 	CsvTsv::CsvTableFormatter formatter(m_output);
 	BitFunnel::QueryInstrumentation::Data::FormatHeader(formatter);
-	instrumentation.Format(formatter);
+	instrumentationdata.Format(formatter);
+}
+
+void QueryRunner::RunQuery2(std::string query)
+{
+	BitFunnel::QueryInstrumentation instrumentation;
+	m_resources.Reset();
+
+	// Parse and run the query, catching ParseError or other RecoverableError
+	try
+	{
+		auto config = BitFunnel::Factories::CreateStreamConfiguration();
+		BitFunnel::QueryParser parser(query.c_str(),
+			*config,
+			m_resources.GetMatchTreeAllocator());
+		auto tree = parser.Parse();
+		instrumentation.FinishParsing();
+
+		// TODO: remove diagnosticStream and replace with nullable.
+		auto diagnosticStream = BitFunnel::Factories::CreateDiagnosticStream(std::cout);
+		if (tree != nullptr)
+		{
+			BitFunnel::Factories::RunQueryPlanner(*tree,
+				*m_index,
+				m_resources,
+				*diagnosticStream,
+				instrumentation,
+				m_resultsBuffer,
+				m_compilerMode);
+
+			instrumentation.QuerySuceeded();
+		}
+	}
+	catch (BitFunnel::RecoverableError e)
+	{
+		// Continue processing other queries, even though the current query failed.
+		// The instrumentation for this query will show that it didn't succeed.
+	}
+
+	// Output query results
+	auto instrumentdata = instrumentation.GetData();
+	m_output << instrumentdata.GetMatchCount() << " matches for: " << query << std::endl;
+	for (auto iter = m_resultsBuffer.begin(); iter != m_resultsBuffer.end(); ++iter)
+	{
+		m_output << "Sonnet " << (*iter).GetHandle().GetDocId() << std::endl;
+	}
+
+	m_output << "Match time (secs): " << instrumentdata.GetMatchingTime() << std::endl;
 }

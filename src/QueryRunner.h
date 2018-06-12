@@ -7,6 +7,8 @@
 #include "BitFunnel/BitFunnelTypes.h"       // ShardId parameter.
 #include "BitFunnel/Configuration/IFileSystem.h"
 #include "BitFunnel/Index/ISimpleIndex.h"   // Parameterizes std::unique_ptr.
+#include "QueryResources.h"
+#include "ResultsBuffer.h"
 
 class QueryRunner {
 public:
@@ -20,6 +22,7 @@ public:
 	~QueryRunner();
 
 	void RunQuery(std::string query);
+	void RunQuery2(std::string query);
 
 private:
 	BitFunnel::IFileSystem& m_fileSystem;
@@ -36,4 +39,8 @@ private:
 	bool m_cacheLineCountMode;
 	bool m_compilerMode;
 	bool m_failOnException;
+
+	BitFunnel::QueryResources m_resources;
+	BitFunnel::ResultsBuffer m_resultsBuffer;
+	size_t m_queriesProcessed;
 };

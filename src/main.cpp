@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 		std::getline(std::cin, query);
 		if (strcmp(query.c_str(), "quit") == 0)
 			break;
-		runner->RunQuery(query);
+		runner->RunQuery2(query);
 	}
 
 	exit(0);
