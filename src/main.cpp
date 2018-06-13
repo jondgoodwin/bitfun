@@ -7,6 +7,10 @@
 #include "QueryRunner.h"
 
 int main(int argc, char *argv[]) {
+	if (argc > 1 && **argv != '\0') {
+		;
+	}
+	
 	auto fileSystem = BitFunnel::Factories::CreateFileSystem();
 	auto runner = new QueryRunner(*fileSystem,
 		                          std::cin, std::cout, 

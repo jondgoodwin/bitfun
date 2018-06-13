@@ -79,7 +79,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\bf\git\bitfunnel\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\bf\git\bitfunnel\inc;D:\bf\git\bitfunnel\NativeJIT\inc;D:\bf\git\BitFunnel\src\Plan\src;D:\bf\git\BitFunnel\src\Common\Configuration\src;D:\bf\git\BitFunnel\src\Common\Utilities\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalDependencies>D:\bf\sol\BitFunnel\src\Common\Configuration\src\Release\Configuration.lib;%(AdditionalDependencies)</AdditionalDependencies>
