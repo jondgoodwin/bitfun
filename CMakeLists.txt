@@ -70,13 +70,13 @@ if(MSVC)
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /DEBUG" )
 elseif(CMAKE_COMPILER_IS_GNUCXX)
   # Need gnu++ instead of c++ so that GTest can access fdopen() etc.
-  set(CMAKE_CXX_FLAGS "-msse4.2 -std=gnu++14 -Wall -Wextra -Werror -Wold-style-cast -fstrict-aliasing -Wstrict-aliasing")
+  set(CMAKE_CXX_FLAGS "-msse4.2 -std=gnu++14 -Wall -Wextra -Werror -fstrict-aliasing -Wstrict-aliasing")
 else()
   # TODO: define a target for -Weverything.
   # set(CMAKE_CXX_FLAGS "-msse4.2 -std=c++14 -Wall -Wextra -Werror -Wold-style-cast ${WEVERYTHING_FLAGS} -Wno-missing-braces")
   # TODO: define a target for msan.
   # set(CMAKE_CXX_FLAGS "-msse4.2 -std=c++14 -Wall -Wextra -Werror -Wold-style-cast ${MSAN_FLAGS} -Wno-missing-braces")
-  set(CMAKE_CXX_FLAGS "-msse4.2 -std=c++14 -Wall -Wextra -Werror -Wold-style-cast -Wno-missing-braces")
+  set(CMAKE_CXX_FLAGS "-msse4.2 -std=c++14 -Wall -Wextra -Werror -Wno-missing-braces")
 endif()
 
 
@@ -121,6 +121,7 @@ include_directories(
 add_executable(bitfun 
 	src/main.cpp
 	src/QueryRunner.cpp
+	src/server.cpp
 )
 
 target_link_libraries(bitfun 
