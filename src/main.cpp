@@ -39,8 +39,8 @@ void sigchld_reaper() {
 }
 
 auto prompt = "Query (or quit): ";
-#define BUFLEN 8192
-char querybuf[BUFLEN];
+#define QUERYBUFLEN 8192
+char querybuf[QUERYBUFLEN];
 #endif
 
 int main(int argc, char *argv[]) {
@@ -87,10 +87,27 @@ int main(int argc, char *argv[]) {
 			if (!fork()) { // this is the child process
 				serverClose(); // child doesn't need the listener
 				{
+					char outbuf[1024];
 					auto socket = Socket(new_fd);
-					socket.Send(prompt, strlen(prompt), 0);
-					int querylen = socket.Recv(querybuf, BUFLEN, 0);
-					socket.Send(querybuf, querylen, 0);
+					socket.BuildBuffer(outbuf, 1024);
+					auto docs = new std::vector<size_t>;
+					while (1)
+					{
+				    	socket.Send(prompt);
+					    socket.GetLine(querybuf, QUERYBUFLEN);
+		             	if (strlen(querybuf)==0 || strcmp(querybuf, "quit") == 0)
+			             	break;
+						runner->RunQueryDocs(querybuf, docs);
+						socket.Add(docs->size());
+						socket.Add(" matches\r\n");
+						for (size_t i = 0; i < docs->size(); ++i)
+						{
+							socket.Add("Sonnet ");
+							socket.Add((*docs)[i]);
+							socket.Add("\r\n");
+						}
+						socket.Send();
+					}
 				}
 				exit(0);
 			}

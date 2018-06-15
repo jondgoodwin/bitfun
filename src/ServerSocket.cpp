@@ -113,7 +113,10 @@ int serverPoll()
 }
 
 Socket::Socket(int fd) :
-m_sockfd(fd)
+m_sockfd(fd),
+m_buffer(NULL),
+m_pos(0),
+m_size(0)
 {
 }
 
@@ -122,15 +125,64 @@ Socket::~Socket()
 	close(m_sockfd);
 }
 
-int Socket::Send(const void *msg, int len, int flags)
+void Socket::BuildBuffer(char *buffer, int size)
 {
-	auto ret = send(m_sockfd, msg, len, flags);
-	if (ret == -1)
-        perror("send");
-	return ret;
+	m_buffer = buffer;
+	m_pos = 0;
+	m_size = size;
 }
 
-int Socket::Recv(void *buf, int len, int flags)
+void Socket::Add(const char *str)
 {
-	return recv(m_sockfd, buf, len, flags);
+	int len = strlen(str);
+	if (m_pos + len > m_size)
+		Send();
+	memcpy(&m_buffer[m_pos], str, len);
+	m_pos += len;
+}
+
+void Socket::Add(int nbr)
+{
+	char numberString[20];
+	sprintf(numberString, "%d", nbr);
+	Add(numberString);
+}
+
+void Socket::Send()
+{
+	auto ret = send(m_sockfd, m_buffer, m_pos, 0);
+	if (ret == -1)
+        perror("send");
+	m_pos = 0;
+}
+
+void Socket::Send(const char *str)
+{
+	auto ret = send(m_sockfd, str, strlen(str), 0);
+	if (ret == -1)
+        perror("send");
+}
+
+void Socket::GetLine(char *buf, int len)
+{
+	int pos = 0;
+	while (1)
+	{
+		int read = recv(m_sockfd, &buf[pos], len-pos, 0);
+		if (read <= 0) {
+			buf[pos] = '\0';
+			return;
+		}
+		if (buf[pos+read-2] == '\r')
+		{
+			buf[pos+read-2] = '\0';
+			return;
+		}
+		if (buf[pos+read-1] == '\n')
+		{
+			buf[pos+read-1] = '\0';
+			return;
+		}
+		pos += read;
+	}
 }
