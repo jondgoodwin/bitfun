@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ios>
 #include <string>
+#include <vector>
 
 #include "BitFunnel/Configuration/Factories.h"
 #include "BitFunnel/Configuration/IFileSystem.h"
@@ -25,13 +26,20 @@ int main(int argc, char *argv[]) {
 
 	// Handle queries via console input/output 
 	if (!server) {
+		auto docs = new std::vector<size_t>;
 		while (1) {
 			std::cout << "Query (or quit): ";
 			std::string query;
 			std::getline(std::cin, query);
 			if (strcmp(query.c_str(), "quit") == 0)
 				break;
-			runner->RunQuery2(query);
+			runner->RunQueryDocs(query, docs);
+			std::cout << docs->size() << " matches for: '" << query
+				<< "'" << std::endl;
+			for (size_t i = 0; i < docs->size(); ++i)
+			{
+				std::cout << "Sonnet " << (*docs)[i] << std::endl;
+			}
 		}
 	}
 

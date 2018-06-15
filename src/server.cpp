@@ -106,6 +106,10 @@ int serverInit(void)
 	return 0;
 }
 
+auto prompt = "Query (or quit): ";
+#define BUFLEN 8192
+char querybuf[BUFLEN];
+
 int serverPoll()
 {
     int new_fd;  // new connection on new_fd
@@ -128,8 +132,10 @@ int serverPoll()
 
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
-            if (send(new_fd, "Hello, world!", 13, 0) == -1)
+            if (send(new_fd, prompt, strlen(prompt), 0) == -1)
                 perror("send");
+			int querylen = recv(new_fd, querybuf, BUFLEN, 0);
+			send(new_fd, querybuf, querylen, 0);
             close(new_fd);
             exit(0);
         }

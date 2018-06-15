@@ -101,7 +101,7 @@ QueryRunner::~QueryRunner()
 {
 }
 
-void QueryRunner::RunQuery(std::string query)
+void QueryRunner::RunQueryCount(std::string query, std::ostream& output)
 {
 	++m_queriesProcessed;
 
@@ -113,13 +113,13 @@ void QueryRunner::RunQuery(std::string query)
 			m_cacheLineCountMode);
 
 	// Output query results
-	m_output << "Results for: " << query << std::endl;
-	CsvTsv::CsvTableFormatter formatter(m_output);
+	output << "Results for: " << query << std::endl;
+	CsvTsv::CsvTableFormatter formatter(output);
 	BitFunnel::QueryInstrumentation::Data::FormatHeader(formatter);
 	instrumentationdata.Format(formatter);
 }
 
-void QueryRunner::RunQuery2(std::string query)
+void QueryRunner::RunQueryDocs(std::string query, std::vector<size_t> *docs)
 {
 	BitFunnel::QueryInstrumentation instrumentation;
 	m_resources.Reset();
@@ -156,12 +156,12 @@ void QueryRunner::RunQuery2(std::string query)
 	}
 
 	// Output query results
+
 	auto instrumentdata = instrumentation.GetData();
-	m_output << instrumentdata.GetMatchCount() << " matches for: " << query << std::endl;
+	docs->resize(instrumentdata.GetMatchCount());
+	size_t i = 0;
 	for (auto iter = m_resultsBuffer.begin(); iter != m_resultsBuffer.end(); ++iter)
 	{
-		m_output << "Sonnet " << (*iter).GetHandle().GetDocId() << std::endl;
+		(*docs)[i++] = (*iter).GetHandle().GetDocId();
 	}
-
-	m_output << "Match time (secs): " << instrumentdata.GetMatchingTime() << std::endl;
 }

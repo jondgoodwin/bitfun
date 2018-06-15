@@ -4,6 +4,7 @@
 
 #include <ios>
 #include <iostream>
+#include <vector>
 #include "BitFunnel/BitFunnelTypes.h"       // ShardId parameter.
 #include "BitFunnel/Configuration/IFileSystem.h"
 #include "BitFunnel/Index/ISimpleIndex.h"   // Parameterizes std::unique_ptr.
@@ -21,8 +22,8 @@ public:
 		        size_t memory);
 	~QueryRunner();
 
-	void RunQuery(std::string query);
-	void RunQuery2(std::string query);
+	void RunQueryCount(std::string query, std::ostream&);
+	void RunQueryDocs(std::string query, std::vector<size_t> *docs);
 
 private:
 	BitFunnel::IFileSystem& m_fileSystem;
