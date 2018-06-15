@@ -8,8 +8,36 @@
 #include "QueryRunner.h"
 
 #ifndef _WIN32
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+
 int serverInit();
 int serverPoll();
+
+// Callback for process reaper
+void sigchld_handler(int /*s*/)
+{
+    // waitpid() might overwrite errno, so we save and restore it:
+    int saved_errno = errno;
+
+    while(waitpid(-1, NULL, WNOHANG) > 0);
+
+    errno = saved_errno;
+}
+
+// Reap dead "zombie" processes
+void sigchld_reaper() {
+    struct sigaction sa;
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
+}
 #endif
 
 int main(int argc, char *argv[]) {
@@ -47,6 +75,8 @@ int main(int argc, char *argv[]) {
 	// Handle queries via Internet sockets
 	else {
 		serverInit();
+		sigchld_reaper();
+		std::cout << "server: waiting for connections...\n";
 		serverPoll();
 	}
 #endif
