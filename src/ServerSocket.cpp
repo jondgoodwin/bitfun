@@ -1,11 +1,13 @@
 /*
-** server.c -- a stream socket server demo
+** ServerSocket.cpp -- a stream socket server
 */
+
+#include "ServerSocket.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -83,9 +85,11 @@ int serverInit(void)
 	return 0;
 }
 
-auto prompt = "Query (or quit): ";
-#define BUFLEN 8192
-char querybuf[BUFLEN];
+// Close the listener
+void serverClose()
+{
+    close(sockfd);
+}
 
 int serverPoll()
 {
@@ -94,30 +98,39 @@ int serverPoll()
     socklen_t sin_size;
     char s[INET6_ADDRSTRLEN];
 
-    while(1) {  // main accept() loop
-        sin_size = sizeof their_addr;
-        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-        if (new_fd == -1) {
-            perror("accept");
-            continue;
-        }
-
-        inet_ntop(their_addr.ss_family,
-            get_in_addr((struct sockaddr *)&their_addr),
-            s, sizeof s);
-        printf("server: got connection from %s\n", s);
-
-        if (!fork()) { // this is the child process
-            close(sockfd); // child doesn't need the listener
-            if (send(new_fd, prompt, strlen(prompt), 0) == -1)
-                perror("send");
-			int querylen = recv(new_fd, querybuf, BUFLEN, 0);
-			send(new_fd, querybuf, querylen, 0);
-            close(new_fd);
-            exit(0);
-        }
-        close(new_fd);  // parent doesn't need this
+    sin_size = sizeof their_addr;
+    new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+    if (new_fd == -1) {
+        perror("accept");
+        return new_fd;
     }
 
-    return 0;
+	inet_ntop(their_addr.ss_family,
+        get_in_addr((struct sockaddr *)&their_addr),
+        s, sizeof s);
+    printf("server: got connection from %s\n", s);
+	return new_fd;
+}
+
+Socket::Socket(int fd) :
+m_sockfd(fd)
+{
+}
+
+Socket::~Socket()
+{
+	close(m_sockfd);
+}
+
+int Socket::Send(const void *msg, int len, int flags)
+{
+	auto ret = send(m_sockfd, msg, len, flags);
+	if (ret == -1)
+        perror("send");
+	return ret;
+}
+
+int Socket::Recv(void *buf, int len, int flags)
+{
+	return recv(m_sockfd, buf, len, flags);
 }

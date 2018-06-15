@@ -8,13 +8,12 @@
 #include "QueryRunner.h"
 
 #ifndef _WIN32
+#include "ServerSocket.h"
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
-
-int serverInit();
-int serverPoll();
+#include <unistd.h>
 
 // Callback for process reaper
 void sigchld_handler(int /*s*/)
@@ -38,6 +37,10 @@ void sigchld_reaper() {
         exit(1);
     }
 }
+
+auto prompt = "Query (or quit): ";
+#define BUFLEN 8192
+char querybuf[BUFLEN];
 #endif
 
 int main(int argc, char *argv[]) {
@@ -77,7 +80,22 @@ int main(int argc, char *argv[]) {
 		serverInit();
 		sigchld_reaper();
 		std::cout << "server: waiting for connections...\n";
-		serverPoll();
+		
+		while(1)
+		{
+			int new_fd = serverPoll();
+			if (!fork()) { // this is the child process
+				serverClose(); // child doesn't need the listener
+				{
+					auto socket = Socket(new_fd);
+					socket.Send(prompt, strlen(prompt), 0);
+					int querylen = socket.Recv(querybuf, BUFLEN, 0);
+					socket.Send(querybuf, querylen, 0);
+				}
+				exit(0);
+			}
+			close(new_fd);  // parent doesn't need this
+		}
 	}
 #endif
 }

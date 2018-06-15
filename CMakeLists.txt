@@ -121,7 +121,7 @@ include_directories(
 add_executable(bitfun 
 	src/main.cpp
 	src/QueryRunner.cpp
-	src/server.cpp
+	src/ServerSocket.cpp
 )
 
 target_link_libraries(bitfun 
