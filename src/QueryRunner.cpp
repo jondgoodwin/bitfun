@@ -4,7 +4,9 @@
 #include "BitFunnel/Chunks/Factories.h"
 #include "BitFunnel/Chunks/IChunkManifestIngestor.h"
 #include "BitFunnel/Configuration/Factories.h"
+#include "BitFunnel/Configuration/IStreamConfiguration.h"
 #include "BitFunnel/Data/Sonnets.h"
+#include "BitFunnel/IDiagnosticStream.h"
 #include "BitFunnel/Index/Factories.h"
 #include "BitFunnel/Index/IIngestor.h"
 #include "BitFunnel/Index/IngestChunks.h"
@@ -16,9 +18,6 @@
 #include "BitFunnel/Utilities/ReadLines.h"
 #include "BitFunnel/Utilities/Stopwatch.h"
 #include "CsvTsv/Csv.h"
-
-#include "StreamConfiguration.h"
-#include "DiagnosticStream.h"
 
 #include "QueryRunner.h"
 
@@ -127,9 +126,10 @@ void QueryRunner::RunQueryDocs(std::string query, std::vector<size_t> *docs)
 	// Parse and run the query, catching ParseError or other RecoverableError
 	try
 	{
-		auto config = BitFunnel::Factories::CreateStreamConfiguration();
+        // streammap maps stream names to their document id (should be more global)
+		auto streammap = BitFunnel::Factories::CreateStreamConfiguration();
 		BitFunnel::QueryParser parser(query.c_str(),
-			*config,
+			*streammap,
 			m_resources.GetMatchTreeAllocator());
 		auto tree = parser.Parse();
 		instrumentation.FinishParsing();
@@ -160,8 +160,8 @@ void QueryRunner::RunQueryDocs(std::string query, std::vector<size_t> *docs)
 	auto instrumentdata = instrumentation.GetData();
 	docs->resize(instrumentdata.GetMatchCount());
 	size_t i = 0;
-	for (auto iter = m_resultsBuffer.begin(); iter != m_resultsBuffer.end(); ++iter)
+	for (auto result : m_resultsBuffer)
 	{
-		(*docs)[i++] = (*iter).GetHandle().GetDocId();
+		(*docs)[i++] = result.GetHandle().GetDocId();
 	}
 }
