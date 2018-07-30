@@ -6,14 +6,13 @@
 #include "BitFunnel/Configuration/Factories.h"
 #include "BitFunnel/Configuration/IStreamConfiguration.h"
 #include "BitFunnel/Data/Sonnets.h"
+#include "BitFunnel/Exceptions.h"   // Base class.
 #include "BitFunnel/IDiagnosticStream.h"
 #include "BitFunnel/Index/Factories.h"
 #include "BitFunnel/Index/IIngestor.h"
 #include "BitFunnel/Index/IngestChunks.h"
 #include "BitFunnel/Plan/Factories.h"
 #include "BitFunnel/Plan/QueryInstrumentation.h"
-#include "BitFunnel/Plan/QueryParser.h"
-#include "BitFunnel/Plan/QueryRunner.h"
 #include "BitFunnel/Utilities/Factories.h"
 #include "BitFunnel/Utilities/ReadLines.h"
 #include "BitFunnel/Utilities/Stopwatch.h"
@@ -42,7 +41,6 @@ QueryRunner::QueryRunner(BitFunnel::IFileSystem& fileSystem,
 	m_cacheLineCountMode(false),
 	m_compilerMode(true),
 	m_failOnException(false),
-	m_resources(c_allocatorSize, c_allocatorSize),
 	m_resultsBuffer(1000),
 	m_queriesProcessed(0)
 {
@@ -86,12 +84,11 @@ QueryRunner::QueryRunner(BitFunnel::IFileSystem& fileSystem,
 
 	m_resultsBuffer = BitFunnel::ResultsBuffer(m_index->GetIngestor().GetDocumentCount());
 
-	if (m_cacheLineCountMode)
-	{
-		m_resources.EnableCacheLineCounting(*m_index);
-	}
+    // streammap maps stream names to their document id
+    m_streammap = BitFunnel::Factories::CreateStreamConfiguration();
+    m_queryEngine = BitFunnel::Factories::CreateQueryEngine(*m_index, *m_streammap);
 
-	// Indicate we are ready
+    // Indicate we are ready
 	double t = stopwatch.ElapsedTime();
 	ingestor.PrintStatistics(m_output, t);
 }
@@ -100,53 +97,21 @@ QueryRunner::~QueryRunner()
 {
 }
 
-void QueryRunner::RunQueryCount(std::string query, std::ostream& output)
-{
-	++m_queriesProcessed;
-
-	// Run the query
-	auto instrumentationdata =
-		BitFunnel::QueryRunner::Run(query.c_str(),
-			*m_index,
-			m_compilerMode,
-			m_cacheLineCountMode);
-
-	// Output query results
-	output << "Results for: " << query << std::endl;
-	CsvTsv::CsvTableFormatter formatter(output);
-	BitFunnel::QueryInstrumentation::Data::FormatHeader(formatter);
-	instrumentationdata.Format(formatter);
-}
-
 void QueryRunner::RunQueryDocs(std::string query, std::vector<size_t> *docs)
 {
 	BitFunnel::QueryInstrumentation instrumentation;
-	m_resources.Reset();
 
 	// Parse and run the query, catching ParseError or other RecoverableError
 	try
 	{
-        // streammap maps stream names to their document id (should be more global)
-		auto streammap = BitFunnel::Factories::CreateStreamConfiguration();
-		BitFunnel::QueryParser parser(query.c_str(),
-			*streammap,
-			m_resources.GetMatchTreeAllocator());
-		auto tree = parser.Parse();
+		auto tree = m_queryEngine->Parse(query.c_str());
 		instrumentation.FinishParsing();
 
 		// TODO: remove diagnosticStream and replace with nullable.
 		auto diagnosticStream = BitFunnel::Factories::CreateDiagnosticStream(std::cout);
 		if (tree != nullptr)
 		{
-			BitFunnel::Factories::RunQueryPlanner(*tree,
-				*m_index,
-				m_resources,
-				*diagnosticStream,
-				instrumentation,
-				m_resultsBuffer,
-				m_compilerMode);
-
-			instrumentation.QuerySuceeded();
+            m_queryEngine->Run(tree, instrumentation, m_resultsBuffer);
 		}
 	}
 	catch (BitFunnel::RecoverableError e)
