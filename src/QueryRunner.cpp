@@ -38,9 +38,6 @@ QueryRunner::QueryRunner(BitFunnel::IFileSystem& fileSystem,
 	m_memory(memory),
 	m_gramSize(1),
 	m_index(BitFunnel::Factories::CreateSimpleIndex(fileSystem)),
-	m_cacheLineCountMode(false),
-	m_compilerMode(true),
-	m_failOnException(false),
 	m_resultsBuffer(1000),
 	m_queriesProcessed(0)
 {

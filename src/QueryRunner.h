@@ -36,10 +36,6 @@ private:
 
 	std::unique_ptr<BitFunnel::ISimpleIndex> m_index;
 
-	bool m_cacheLineCountMode;
-	bool m_compilerMode;
-	bool m_failOnException;
-
 	std::unique_ptr<BitFunnel::IQueryEngine> m_queryEngine;
     std::unique_ptr<BitFunnel::IStreamConfiguration> m_streammap;
 	BitFunnel::ResultsBuffer m_resultsBuffer;
